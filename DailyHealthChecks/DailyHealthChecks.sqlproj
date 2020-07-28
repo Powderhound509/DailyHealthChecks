@@ -70,6 +70,12 @@
     <Build Include="dbo\Tables\backupStatus.sql" />
     <Build Include="dbo\Types\backupStatusType.sql" />
     <Build Include="dbo\Procedures\sp_update_backupStatus.sql" />
+    <Build Include="dbo\Types\diskStatusType.sql" />
+    <Build Include="dbo\Procedures\sp_update_diskSpace.sql" />
+    <Build Include="dbo\Types\UserDefinedTableType1.sql" />
+    <Build Include="dbo\Tables\jobStatusHistory.sql" />
+    <Build Include="dbo\Tables\jobStatus.sql" />
+    <Build Include="dbo\Procedures\sp_update_jobStatus.sql" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="Scripts\PostDeployment.sql" />

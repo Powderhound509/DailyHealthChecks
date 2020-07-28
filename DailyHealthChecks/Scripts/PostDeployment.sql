@@ -15,6 +15,26 @@ go
 
 CREATE CLUSTERED COLUMNSTORE INDEX IX_backupStatusHistory
     ON backupStatusHistory;
-CREATE NONCLUSTERED INDEX IX_DepartmentHistory_ID_PERIOD_COLUMNS
+CREATE NONCLUSTERED INDEX IX_backupStatusHistory_ID_PERIOD_COLUMNS
     ON backupStatusHistory (SysEndTime, SysStartTime, recordId);
+GO
+
+--diskSpaceHistory Columnstore Index
+USE DailyHealthChecks
+go
+
+CREATE CLUSTERED COLUMNSTORE INDEX IX_diskSpaceHistory
+    ON diskSpaceHistory;
+CREATE NONCLUSTERED INDEX IX_diskSpaceHistory_ID_PERIOD_COLUMNS
+    ON diskSpaceHistory (SysEndTime, SysStartTime, recordId);
+GO
+
+--jobStatusHistory Columnstore Index
+USE DailyHealthChecks
+go
+
+CREATE CLUSTERED COLUMNSTORE INDEX IX_jobStatusHistory
+    ON jobStatusHistory;
+CREATE NONCLUSTERED INDEX IX_jobStatusHistory_ID_PERIOD_COLUMNS
+    ON jobStatusHistory (SysEndTime, SysStartTime, recordId);
 GO
