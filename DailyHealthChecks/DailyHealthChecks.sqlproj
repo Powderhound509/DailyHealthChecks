@@ -80,6 +80,10 @@
     <Build Include="dbo\Procedures\sp_update_serviceStatus.sql" />
     <Build Include="dbo\Tables\serviceStatusHistory.sql" />
     <Build Include="dbo\Tables\serviceStatus.sql" />
+    <Build Include="dbo\Tables\clusterStatusHistory.sql" />
+    <Build Include="dbo\Tables\clusterStatus.sql" />
+    <Build Include="dbo\Types\clusterStatusType.sql" />
+    <Build Include="dbo\Procedures\sp_update_clusterStatus.sql" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="Scripts\PostDeployment.sql" />

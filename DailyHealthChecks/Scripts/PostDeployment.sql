@@ -48,3 +48,13 @@ CREATE CLUSTERED COLUMNSTORE INDEX IX_serviceStatusHistory
 CREATE NONCLUSTERED INDEX IX_serviceStatusHistory_ID_PERIOD_COLUMNS
     ON serviceStatusHistory (SysEndTime, SysStartTime, recordId);
 GO
+
+--clusterStatusHistory Columnstore Index
+USE DailyHealthChecks
+go
+
+CREATE CLUSTERED COLUMNSTORE INDEX IX_clusterStatusHistory
+    ON clusterStatusHistory;
+CREATE NONCLUSTERED INDEX IX_clusterStatusHistory_ID_PERIOD_COLUMNS
+    ON clusterStatusHistory (SysEndTime, SysStartTime, recordId);
+GO
