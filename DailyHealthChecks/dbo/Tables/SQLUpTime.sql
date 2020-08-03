@@ -1,8 +1,12 @@
-﻿CREATE TABLE [dbo].[SQLUpTime] (
-    [recordID]        INT           IDENTITY (1, 1) NOT NULL,
-    [serverName]      [sysname]     NOT NULL,
-    [serverStartTime] DATETIME2 (7) NOT NULL,
-    [recordTime]      DATETIME2 (7) DEFAULT (getdate()) NULL,
-    PRIMARY KEY CLUSTERED ([recordID] ASC)
-);
+﻿CREATE TABLE [dbo].[SQLUpTime](
+	[recordId] INT IDENTITY(1,1) NOT NULL,
+	[serverName] VARCHAR(128) NOT NULL,
+	[serverStartTime] DATETIME2 (7) NOT NULL,
+	SysStartTime DATETIME2 GENERATED ALWAYS AS ROW START NOT NULL,
+	SysEndTime DATETIME2 GENERATED ALWAYS AS ROW END NOT NULL,
+	CONSTRAINT [PK_SQLUpTime_RID] PRIMARY KEY (recordId),
+	PERIOD FOR SYSTEM_TIME (SysStartTime,SysEndTime)
+) ON [PRIMARY]
+WITH (SYSTEM_VERSIONING = ON (HISTORY_TABLE = dbo.SQLUpTimeHistory));
+
 

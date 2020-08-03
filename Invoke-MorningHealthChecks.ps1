@@ -57,7 +57,8 @@ param(
   [CmdletBinding()]
   [Parameter(ParameterSetName='Set1',Position=0,Mandatory=$true)][String]$cmsServer,
   [parameter(ParameterSetName='Set1',Position=1,Mandatory=$false)][String]$cmsGroup,
-  [parameter(ParameterSetName='Set2',Position=2,Mandatory=$true)][String[]]$serverList
+  [parameter(ParameterSetName='Set2',Position=2,Mandatory=$true)][String]$serverList,
+  [parameter(ParameterSetName='Set1',Position=3,Mandatory=$true)][String]$cmsDatabase ## Where we want to store the results to
 )
 
 ####################   LOAD ASSEMBLIES   ########################
@@ -413,7 +414,14 @@ function Get-SqlUpTime {
     catch {
         Get-Error $_ -ContinueAfterError
     }
-
+    #Write to DB, would like to change this to if not exists insert else update and convert to temporal table
+    try {
+    (Invoke-Sqlcmd -ServerInstance $targetServer -Query "SELECT @@servername, sqlserver_start_time FROM sys.dm_os_sys_info;") |
+            Write-SqlTableData -serverInstance $cmsServer -DatabaseName $cmsDatabase -SchemaName "dbo" -TableName "SQLUpTime" -Force
+    }
+    catch{
+         Get-Error $_ -ContinueAfterError
+    }
     $upTime = (New-TimeSpan -Start ($sqlStartupTime) -End ($script:startTime))
 
     #Display the results to the console
@@ -455,7 +463,29 @@ function Get-DatabaseStatus {
     catch {
         Get-Error $_ -ContinueAfterError
     }
-
+   #Begin Write to DB
+    try {
+        ## Get the server\instance and startup time
+        ##$result = $null
+        $result = @(Invoke-Sqlcmd -ServerInstance $targetServer -Query "SELECT @@servername serverName, [name] AS [database_name], state_desc FROM sys.databases d
+                                                                        JOIN sys.database_mirroring dm ON d.database_id = dm.database_id
+                                                                        WHERE dm.mirroring_role_desc <> 'MIRROR'
+                                                                        OR dm.mirroring_role_desc IS NULL;
+                                                                        ")
+       ## for each record exec sp (unless there's a way to pass in the whole resultSet)
+        $result | ForEach-Object {
+            ##write-host $result.database_Name
+            $param1 = $_.serverName
+            $param2 = $_.database_Name
+            $param3 = $_.state_desc
+            #Write-Host "$cmsDatabase, $param1, $param2, $param3"
+            Invoke-SQLcmd -ServerInstance $cmsServer -Query "Exec [$cmsDatabase].dbo.sp_update_DatabaseStatus '$param1', '$param2', '$param3'" ##-outputerrors $true
+        }
+    }
+    catch{
+            Get-Error $_ -ContinueAfterError
+    }
+    #End Write to DB
     #Display the results to the console
     if ($results.Tables[0] | Where-Object {$_.state_desc -eq 'SUSPECT'}) {
         Write-Host "`nCRITICAL:" -BackgroundColor Red -ForegroundColor White -NoNewline; Write-Host " $($server.TrueName)"
@@ -503,6 +533,70 @@ function Get-AGStatus {
         Get-Error $_ -ContinueAfterError
     }
 
+
+#Build a DataTable to hold the Availability Group Status
+$tAGStatus = New-Object System.Data.DataTable
+$columnName = New-Object System.Data.DataColumn ag_name,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn replica_server_name,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn role,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn availability_mode_desc,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn failover_mode_desc,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn database_name,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn synchronization_state,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn synchronization_health,([string])
+$tAGStatus.Columns.Add($columnName)
+
+
+#Begin Write to DB
+try {
+	$results.Tables[0] | ForEach-Object {
+    $rAGStatus = $tAGStatus.NewRow()
+    $rAGStatus.ag_name = $($_.ag_name)
+    $rAGStatus.replica_server_name = $($_.replica_server_name)
+    $rAGStatus.role = $($_.role)
+    $rAGStatus.availability_mode_desc = $($_.availability_mode_desc)
+    $rAGStatus.failover_mode_desc = $($_.failover_mode_desc)
+	$rAGStatus.database_name = $($_.database_name)
+    $rAGStatus.synchronization_state = $($_.synchronization_state)
+	$rAGStatus.synchronization_health = $($_.synchronization_health)
+    $tAGStatus.Rows.Add($rAGStatus)
+
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.sp_update_AGStatus'
+    $cmd.Parameters.Add("@AGStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@AGStatus"].Value = $tAGStatus}
+    
+    if ($tAGStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+
+    #End Write to DB
+
     #Display the results to the console
     if ($results.Tables[0].Rows.Count -ne 0) {
         if ($results.Tables[0] | Where-Object {$_.synchronization_health -ne 'HEALTHY'}) {
@@ -523,6 +617,7 @@ function Get-AGStatus {
       Write-Host "`nGOOD:" -BackgroundColor Green -ForegroundColor Black -NoNewline; Write-Host " $($server.TrueName)"
       Write-Host '*** No Availabiliy Groups detected ***'
     }
+
 } #Get-AGStatus
 
 function Get-DatabaseBackupStatus {
