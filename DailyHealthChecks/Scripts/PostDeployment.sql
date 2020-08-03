@@ -58,3 +58,23 @@ CREATE CLUSTERED COLUMNSTORE INDEX IX_clusterStatusHistory
 CREATE NONCLUSTERED INDEX IX_clusterStatusHistory_ID_PERIOD_COLUMNS
     ON clusterStatusHistory (SysEndTime, SysStartTime, recordId);
 GO
+-- SERVER UPTIME Columnstore Index
+CREATE CLUSTERED COLUMNSTORE INDEX IX_SQLUpTimeHistory
+    ON SQLUpTimeHistory;
+CREATE NONCLUSTERED INDEX IX_SQLUpTimeHistory_ID_PERIOD_COLUMNS
+    ON SQLUpTimeHistory (SysEndTime, SysStartTime, recordId);
+GO
+
+-- DATABASE STATUS Columnstore Index
+CREATE CLUSTERED COLUMNSTORE INDEX IX_DatabaseStatusHistory
+    ON DatabaseStatusHistory;
+CREATE NONCLUSTERED INDEX IX_DatabaseStatusHistory_ID_PERIOD_COLUMNS
+    ON DatabaseStatusHistory (SysEndTime, SysStartTime, recordId);
+GO
+
+-- AGStatus Columnstore Index
+CREATE CLUSTERED COLUMNSTORE INDEX IX_AGStatusHistory
+    ON AGStatusHistory;
+CREATE NONCLUSTERED INDEX IX_AGStatusHistory_ID_PERIOD_COLUMNS
+    ON AGStatusHistory (SysEndTime, SysStartTime, recordId);
+GO
