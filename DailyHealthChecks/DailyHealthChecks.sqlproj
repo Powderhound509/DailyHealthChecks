@@ -60,8 +60,41 @@
     <Folder Include="Properties" />
     <Folder Include="dbo\" />
     <Folder Include="dbo\Tables\" />
+    <Folder Include="Scripts" />
+    <Folder Include="dbo\Stored Procedures" />
+    <Folder Include="dbo\Types" />
   </ItemGroup>
   <ItemGroup>
-    <Build Include="dbo\Tables\SQLUpTime_1.sql" />
+    <Build Include="dbo\Tables\SQLUpTime.sql" />
+    <Build Include="dbo\Tables\SQLUpTimeHistory.sql" />
+    <Build Include="dbo\Stored Procedures\sp_update_SQLUpTime.sql" />
+    <Build Include="dbo\Tables\DatabaseStatus.sql" />
+    <Build Include="dbo\Stored Procedures\sp_update_DatabaseStatus.sql" />
+    <Build Include="dbo\Tables\DatabaseStatusHistory.sql" />
+    <Build Include="dbo\Tables\AGStatus.sql" />
+    <Build Include="dbo\Tables\AGStatusHistory.sql" />
+    <Build Include="dbo\Types\AGStatusType.sql" />
+    <Build Include="dbo\Stored Procedures\sp_update_AGStatus.sql" />
+    <Build Include="dbo\Tables\backupStatus.sql" />
+    <Build Include="dbo\Tables\backupStatusHistory.sql" />
+    <Build Include="dbo\Tables\clusterStatus.sql" />
+    <Build Include="dbo\Tables\clusterStatusHistory.sql" />
+    <Build Include="dbo\Tables\diskSpace.sql" />
+    <Build Include="dbo\Tables\diskSpaceHistory.sql" />
+    <Build Include="dbo\Tables\jobStatus.sql" />
+    <Build Include="dbo\Tables\jobStatusHistory.sql" />
+    <Build Include="dbo\Tables\serviceStatus.sql" />
+    <Build Include="dbo\Tables\serviceStatusHistory.sql" />
+    <Build Include="Scripts\PostDeployment.sql" />
+    <Build Include="dbo\Types\backupStatusType.sql" />
+    <Build Include="dbo\Types\clusterStatusType.sql" />
+    <Build Include="dbo\Types\diskStatusType.sql" />
+    <Build Include="dbo\Types\jobStatusType.sql" />
+    <Build Include="dbo\Types\serviceStatusType.sql" />
+    <Build Include="dbo\Stored Procedures\sp_update_backupStatus.sql" />
+    <Build Include="dbo\Stored Procedures\sp_update_clusterStatus.sql" />
+    <Build Include="dbo\Stored Procedures\sp_update_diskSpace.sql" />
+    <Build Include="dbo\Stored Procedures\sp_update_jobStatus.sql" />
+    <Build Include="dbo\Stored Procedures\sp_update_serviceStatus.sql" />
   </ItemGroup>
 </Project>
