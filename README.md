@@ -1,8 +1,9 @@
-# SQLMorningHealthChecks
+# DailyHealthChecks
 
 ### Supported On-prem Versions: SQL Server 2012 and higher
 
 #### This script answers the following questions about your SQL Servers.
+##### This script outputs the results to the screen as well as writes them to a database.
 
 1. What is the uptime of each SQL Server?
    1. CRITICAL = < 6 hours
