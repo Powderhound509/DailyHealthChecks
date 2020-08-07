@@ -533,7 +533,7 @@ function Get-AGStatus {
         Get-Error $_ -ContinueAfterError
     }
 
-
+#Begin Write to DB
 #Build a DataTable to hold the Availability Group Status
 $tAGStatus = New-Object System.Data.DataTable
 $columnName = New-Object System.Data.DataColumn ag_name,([string])
@@ -553,8 +553,6 @@ $tAGStatus.Columns.Add($columnName)
 $columnName = New-Object System.Data.DataColumn synchronization_health,([string])
 $tAGStatus.Columns.Add($columnName)
 
-
-#Begin Write to DB
 try {
 	$results.Tables[0] | ForEach-Object {
     $rAGStatus = $tAGStatus.NewRow()
@@ -691,6 +689,69 @@ function Get-DatabaseBackupStatus {
     catch {
         Get-Error $_ -ContinueAfterError
     }
+
+#Begin Write to DB
+#Build a DataTable to hold the Availability Group Status
+$tBackupStatus = New-Object System.Data.DataTable
+$columnName = New-Object System.Data.DataColumn server_name,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn database_name,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn recovery_model_desc,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_full_backup,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_differential_backup,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_tlog_backup,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn backup_status,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn status_desc,([string])
+$tBackupStatus.Columns.Add($columnName)
+
+
+try {#For each row in results, add it to the table object
+	$results.Tables[0] | ForEach-Object {
+    $rBackupStatus = $tBackupStatus.NewRow()
+    $rBackupStatus.server_name = $($_.ag_name)
+    $rBackupStatus.database_name = $($_.replica_server_name)
+    $rBackupStatus.recovery_model_desc = $($_.role)
+    $rBackupStatus.last_full_backup = $($_.availability_mode_desc)
+    $rBackupStatus.last_differential_backup = $($_.failover_mode_desc)
+	$rBackupStatus.last_tlog_backup = $($_.database_name)
+    $rBackupStatus.backup_status = $($_.synchronization_state)
+	$rBackupStatus.status_desc = $($_.synchronization_health)
+    $tBackupStatus.Rows.Add($rBackupStatus)
+
+    #Connect to the CMS database and pass the table object to the stored procedure
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.sp_update_backupStatus'
+    $cmd.Parameters.Add("@backupStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@backupStatus"].Value = $tBackupStatus}
+    
+    if ($tBackupStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+#End Write to DB
 
     #Display the results to the console
     if ($results.Tables[0] | Where-Object {$_.backup_status -eq 'CRITICAL'}) {
