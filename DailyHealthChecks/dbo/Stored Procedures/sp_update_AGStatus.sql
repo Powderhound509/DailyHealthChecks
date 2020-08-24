@@ -13,8 +13,7 @@ BEGIN
 				[failover_mode_desc],
 				[database_name],
 				[synchronization_state],
-				[synchronization_health],
-				[lastUpdate]
+				[synchronization_health]
 		FROM @AGStatus 
 		) AS [source](	[ag_name],
 						[replica_server_name],
@@ -23,8 +22,8 @@ BEGIN
 						[failover_mode_desc],
 						[database_name],
 						[synchronization_state],
-						[synchronization_health],
-						[lastUpdate])
+						[synchronization_health]
+						)
 		ON ([target].ag_name = [source].ag_name and
 			[target].replica_server_name = [source].replica_server_name and
 			[target].[database_name] = [source].[database_name])
@@ -34,8 +33,7 @@ BEGIN
 						[target].[availability_mode_desc]=[source].[availability_mode_desc],
 						[target].[failover_mode_desc]=[source].[failover_mode_desc],
 						[target].[synchronization_state]=[source].[synchronization_state],
-						[target].[synchronization_health]=[source].[synchronization_health],
-						[target].[lastUpdate]=[source].[lastUpdate]
+						[target].[synchronization_health]=[source].[synchronization_health]
 		WHEN NOT MATCHED THEN
 			INSERT	(
 					[ag_name],
@@ -45,8 +43,7 @@ BEGIN
 					[failover_mode_desc],
 					[database_name],
 					[synchronization_state],
-					[synchronization_health],
-					[lastUpdate]
+					[synchronization_health]
 					)
 			VALUES	(
 					[source].[ag_name],
@@ -56,7 +53,6 @@ BEGIN
 					[source].[failover_mode_desc],
 					[source].[database_name],
 					[source].[synchronization_state],
-					[source].[synchronization_health],
-					[source].[lastUpdate]
+					[source].[synchronization_health]
 					);
 END
