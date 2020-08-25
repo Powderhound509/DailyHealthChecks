@@ -67,14 +67,14 @@
   <ItemGroup>
     <Build Include="dbo\Tables\SQLUpTime.sql" />
     <Build Include="dbo\Tables\SQLUpTimeHistory.sql" />
-    <Build Include="dbo\Stored Procedures\sp_update_SQLUpTime.sql" />
+    <Build Include="dbo\Stored Procedures\update_SQLUpTime.sql" />
     <Build Include="dbo\Tables\DatabaseStatus.sql" />
-    <Build Include="dbo\Stored Procedures\sp_update_DatabaseStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_DatabaseStatus.sql" />
     <Build Include="dbo\Tables\DatabaseStatusHistory.sql" />
     <Build Include="dbo\Tables\AGStatus.sql" />
     <Build Include="dbo\Tables\AGStatusHistory.sql" />
     <Build Include="dbo\Types\AGStatusType.sql" />
-    <Build Include="dbo\Stored Procedures\sp_update_AGStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_AGStatus.sql" />
     <Build Include="dbo\Tables\backupStatus.sql" />
     <Build Include="dbo\Tables\backupStatusHistory.sql" />
     <Build Include="dbo\Tables\clusterStatus.sql" />
@@ -91,10 +91,10 @@
     <Build Include="dbo\Types\diskStatusType.sql" />
     <Build Include="dbo\Types\jobStatusType.sql" />
     <Build Include="dbo\Types\serviceStatusType.sql" />
-    <Build Include="dbo\Stored Procedures\sp_update_backupStatus.sql" />
-    <Build Include="dbo\Stored Procedures\sp_update_clusterStatus.sql" />
-    <Build Include="dbo\Stored Procedures\sp_update_diskSpace.sql" />
-    <Build Include="dbo\Stored Procedures\sp_update_jobStatus.sql" />
-    <Build Include="dbo\Stored Procedures\sp_update_serviceStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_backupStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_clusterStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_diskSpace.sql" />
+    <Build Include="dbo\Stored Procedures\update_jobStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_serviceStatus.sql" />
   </ItemGroup>
 </Project>

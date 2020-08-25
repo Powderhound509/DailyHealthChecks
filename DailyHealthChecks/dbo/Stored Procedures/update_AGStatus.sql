@@ -1,4 +1,4 @@
-﻿CREATE PROCEDURE dbo.sp_update_AGStatus @AGStatus AGStatusType READONLY
+﻿CREATE PROCEDURE dbo.update_AGStatus @AGStatus AGStatusType READONLY
 AS
 BEGIN
 	SET NOCOUNT ON

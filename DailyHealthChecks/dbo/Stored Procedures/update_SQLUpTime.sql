@@ -1,4 +1,4 @@
-﻿CREATE PROC sp_update_SQLUpTime(@serverName VARCHAR(128), @startupTime DATETIME2)
+﻿CREATE PROC update_SQLUpTime(@serverName VARCHAR(128), @startupTime DATETIME2)
 AS BEGIN
 	-- Check if there's already a record for the server\instance
 	IF NOT EXISTS(SELECT 'a' FROM SQLUpTime WHERE serverName = @serverName)

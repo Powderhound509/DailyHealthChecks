@@ -1,4 +1,4 @@
-﻿create procedure sp_update_backupStatus (@backupStatus backupStatusType READONLY)
+﻿create procedure update_backupStatus (@backupStatus backupStatusType READONLY)
 as begin
 	-- merge status into table
 	MERGE dbo.backupStatus AS [target]

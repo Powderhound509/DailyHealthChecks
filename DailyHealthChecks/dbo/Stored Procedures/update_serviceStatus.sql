@@ -1,4 +1,4 @@
-﻿create procedure sp_update_serviceStatus (@serviceStatus serviceStatusType READONLY)
+﻿create procedure update_serviceStatus (@serviceStatus serviceStatusType READONLY)
 as BEGIN
 	-- merge service status into table
 	MERGE dbo.serviceStatus as [target]
