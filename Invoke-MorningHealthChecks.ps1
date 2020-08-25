@@ -1114,6 +1114,49 @@ function Get-ClusterStatus {
       Write-Host "`nGOOD:" -BackgroundColor Green -ForegroundColor Black -NoNewline; Write-Host " $($server.TrueName)"
       Write-Host '*** No cluster detected ***'
     }
+#Begin Write to DB
+    #Build a DataTable to hold the Availability Group Status
+    $tCLStatus = New-Object System.Data.DataTable
+    $columnName = New-Object System.Data.DataColumn cluster_node_name,([string])
+    $tCLStatus.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn cluster_node_status,([string])
+    $tCLStatus.Columns.Add($columnName)
+
+
+try {
+	$results.Tables[0] | ForEach-Object {
+    $rCLStatus = $tCLStatus.NewRow()
+    $rCLStatus.cluster_node_name = $($_.cluster_node_name)
+    $rCLStatus.cluster_node_status = $($_.cluster_node_status)
+    $tCLStatus.Rows.Add($rCLStatus)
+
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.update_clusterStatus'
+    $cmd.Parameters.Add("@clusterStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@clusterStatus"].Value = $tCLStatus}
+    
+    if ($tCLStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+#End Write to DB
 } #Get-ClusterStatus
 
 ####################   MAIN   ########################
