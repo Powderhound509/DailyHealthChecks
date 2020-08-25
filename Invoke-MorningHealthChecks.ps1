@@ -755,7 +755,7 @@ function Get-DatabaseBackupStatus {
     catch {
         Get-Error $_ -ContinueAfterError
     }
-#Build a DataTable to hold the Availability Group Status
+#Build a DataTable to hold the Backup Status
 $tBackupStatus = New-Object System.Data.DataTable
 $columnName = New-Object System.Data.DataColumn server_name,([string])
 $tBackupStatus.Columns.Add($columnName)
@@ -870,6 +870,79 @@ function Get-DiskSpace {
     else { Write-Host "`nGOOD:" -BackgroundColor Green -ForegroundColor Black -NoNewline; Write-Host " $($server.TrueName)" }
 
     $results.Tables[0] | Where-Object {$_.free_space_pct -lt 20.0} | Select-Object volume_mount_point,total_size_gb,available_size_gb,free_space_pct | Format-Table -AutoSize
+#Begin Write to DB
+    $cmd = @"
+    SELECT DISTINCT
+         @@servername server_name 
+        ,vs.volume_mount_point
+        ,vs.logical_volume_name
+        ,CONVERT(DECIMAL(18,2), vs.total_bytes/1073741824.0) AS total_size_gb
+        ,CONVERT(DECIMAL(18,2), vs.available_bytes/1073741824.0) AS available_size_gb
+        ,CONVERT(DECIMAL(18,2), vs.available_bytes * 1. / vs.total_bytes * 100.) AS free_space_pct
+    FROM sys.master_files AS f WITH (NOLOCK)
+    CROSS APPLY sys.dm_os_volume_stats(f.database_id, f.[file_id]) AS vs 
+    ORDER BY vs.volume_mount_point OPTION (RECOMPILE);
+"@
+    try {
+            $results = $server.ExecuteWithResults($cmd)
+        }
+        catch {
+            Get-Error $_ -ContinueAfterError
+        }
+#Build a DataTable to hold the Disk Space
+    $tDiskSpace = New-Object System.Data.DataTable
+    $columnName = New-Object System.Data.DataColumn server_name,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn volume_mount_point,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn logical_volume_name,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn total_size_gb,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn available_size_gb,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn free_space_pct,([string])
+    $tDiskSpace.Columns.Add($columnName)
+
+
+try {
+	$results.Tables[0] | ForEach-Object {
+    $rDiskSpace = $tDiskSpace.NewRow()
+    $rDiskSpace.server_name = $($_.server_name)
+    $rDiskSpace.volume_mount_point = $($_.volume_mount_point)
+    $rDiskSpace.logical_volume_name = $($_.logical_volume_name)
+    $rDiskSpace.total_size_gb = $($_.total_size_gb)
+    $rDiskSpace.available_size_gb = $($_.available_size_gb)
+	$rDiskSpace.free_space_pct = $($_.free_space_pct)
+    $tDiskSpace.Rows.Add($rDiskSpace)
+
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.update_diskSpace'
+    $cmd.Parameters.Add("@diskSpace", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@diskSpace"].Value = $tDiskSpace}
+    
+    if ($tDiskSpace.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+#End Write to DB
 } #Get-DiskSpace
 
 function Get-FailedJobs {
@@ -1010,7 +1083,7 @@ function Get-ServiceStatus {
     catch {
         Get-Error $_ -ContinueAfterError
     }
-    #Build a DataTable to hold the Availability Group Status
+    #Build a DataTable to hold the SQL Service Status
             $tServiceStatus = New-Object System.Data.DataTable
             $columnName = New-Object System.Data.DataColumn server_name,([string])
             $tServiceStatus.Columns.Add($columnName)
@@ -1115,7 +1188,7 @@ function Get-ClusterStatus {
       Write-Host '*** No cluster detected ***'
     }
 #Begin Write to DB
-    #Build a DataTable to hold the Availability Group Status
+    #Build a DataTable to hold the Cluster Status
     $tCLStatus = New-Object System.Data.DataTable
     $columnName = New-Object System.Data.DataColumn cluster_node_name,([string])
     $tCLStatus.Columns.Add($columnName)

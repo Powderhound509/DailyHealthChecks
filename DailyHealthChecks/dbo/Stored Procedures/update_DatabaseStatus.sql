@@ -1,4 +1,4 @@
-﻿CREATE PROC update_DatabaseStatus(@serverName NVARCHAR(128), @databaseName NVARCHAR(128), @databaseStatus NVARCHAR(25))
+﻿CREATE PROC update_databaseStatus(@serverName NVARCHAR(128), @databaseName NVARCHAR(128), @databaseStatus NVARCHAR(25))
 AS BEGIN
 
 IF NOT EXISTS(SELECT serverName FROM DatabaseStatus WHERE serverName = @serverName AND databaseName = @databaseName)
