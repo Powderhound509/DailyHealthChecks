@@ -999,6 +999,68 @@ function Get-ServiceStatus {
             Write-Host "$($_.servicename): $($_.status_desc)"
         }
     }
+
+#Begin Write to DB
+
+    $cmd = "SELECT @@servername server_name, servicename as service_name,CASE SERVERPROPERTY('IsClustered') WHEN 0 THEN startup_type_desc WHEN 1 THEN 'Automatic' END AS startup_type_desc,status_desc FROM sys.dm_server_services;"
+
+    try {
+        $results = $server.ExecuteWithResults($cmd)
+    }
+    catch {
+        Get-Error $_ -ContinueAfterError
+    }
+    #Build a DataTable to hold the Availability Group Status
+            $tServiceStatus = New-Object System.Data.DataTable
+            $columnName = New-Object System.Data.DataColumn server_name,([string])
+            $tServiceStatus.Columns.Add($columnName)
+            $columnName = New-Object System.Data.DataColumn service_name,([string])
+            $tServiceStatus.Columns.Add($columnName)
+            $columnName = New-Object System.Data.DataColumn startup_type_desc,([string])
+            $tServiceStatus.Columns.Add($columnName)
+            $columnName = New-Object System.Data.DataColumn status_desc,([string])
+            $tServiceStatus.Columns.Add($columnName)
+    
+    try {#For each row in results, add it to the table object
+    
+    	$results.Tables[0] | ForEach-Object {
+
+        $rServiceStatus = $tServiceStatus.NewRow()
+        $rServiceStatus.server_name = $($_.server_name)
+        $rServiceStatus.service_name = $($_.service_name)
+        $rServiceStatus.startup_type_desc = $($_.startup_type_desc)
+        $rServiceStatus.status_desc = $($_.status_desc)
+        $tServiceStatus.Rows.Add($rServiceStatus)
+        
+        #Connect to the CMS database and pass the table object to the stored procedure
+        $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+        $conn.Open()
+        $cmd = New-Object System.Data.SqlClient.SqlCommand
+        $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+        $cmd.CommandText = 'dbo.sp_update_serviceStatus'
+        $cmd.Parameters.Add("@serviceStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+        $cmd.Parameters["@serviceStatus"].Value = $tServiceStatus}
+        
+        if ($tServiceStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+                try {
+                  $cmd.Connection = $conn
+                  $null = $cmd.ExecuteNonQuery()
+                }
+                catch {
+                  $objError = Get-Error $_ -ContinueAfterError
+                }
+                finally {
+                  #Make sure this connection is closed
+                  $conn.Close()
+                 }
+            }
+        }
+
+    catch{
+          Get-Error $_ -ContinueAfterError
+        }
+
+#End Write to DB
 } #Get-ServiceStatus
 
 function Get-ClusterStatus {
