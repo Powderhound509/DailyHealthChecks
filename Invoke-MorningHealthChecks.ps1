@@ -57,7 +57,8 @@ param(
   [CmdletBinding()]
   [Parameter(ParameterSetName='Set1',Position=0,Mandatory=$true)][String]$cmsServer,
   [parameter(ParameterSetName='Set1',Position=1,Mandatory=$false)][String]$cmsGroup,
-  [parameter(ParameterSetName='Set2',Position=2,Mandatory=$true)][String[]]$serverList
+  [parameter(ParameterSetName='Set2',Position=2,Mandatory=$true)][String]$serverList,
+  [parameter(ParameterSetName='Set1',Position=3,Mandatory=$true)][String]$cmsDatabase ## Where we want to store the results to
 )
 
 ####################   LOAD ASSEMBLIES   ########################
@@ -413,7 +414,14 @@ function Get-SqlUpTime {
     catch {
         Get-Error $_ -ContinueAfterError
     }
-
+    #Write to DB, would like to change this to if not exists insert else update and convert to temporal table
+    try {
+    (Invoke-Sqlcmd -ServerInstance $targetServer -Query "SELECT @@servername, sqlserver_start_time FROM sys.dm_os_sys_info;") |
+            Write-SqlTableData -serverInstance $cmsServer -DatabaseName $cmsDatabase -SchemaName "dbo" -TableName "SQLUpTime" -Force
+    }
+    catch{
+         Get-Error $_ -ContinueAfterError
+    }
     $upTime = (New-TimeSpan -Start ($sqlStartupTime) -End ($script:startTime))
 
     #Display the results to the console
@@ -455,7 +463,29 @@ function Get-DatabaseStatus {
     catch {
         Get-Error $_ -ContinueAfterError
     }
-
+   #Begin Write to DB
+    try {
+        ## Get the server\instance and startup time
+        ##$result = $null
+        $result = @(Invoke-Sqlcmd -ServerInstance $targetServer -Query "SELECT @@servername serverName, [name] AS [database_name], state_desc FROM sys.databases d
+                                                                        JOIN sys.database_mirroring dm ON d.database_id = dm.database_id
+                                                                        WHERE dm.mirroring_role_desc <> 'MIRROR'
+                                                                        OR dm.mirroring_role_desc IS NULL;
+                                                                        ")
+       ## for each record exec sp (unless there's a way to pass in the whole resultSet)
+        $result | ForEach-Object {
+            ##write-host $result.database_Name
+            $param1 = $_.serverName
+            $param2 = $_.database_Name
+            $param3 = $_.state_desc
+            #Write-Host "$cmsDatabase, $param1, $param2, $param3"
+            Invoke-SQLcmd -ServerInstance $cmsServer -Query "Exec [$cmsDatabase].dbo.sp_update_DatabaseStatus '$param1', '$param2', '$param3'" ##-outputerrors $true
+        }
+    }
+    catch{
+            Get-Error $_ -ContinueAfterError
+    }
+    #End Write to DB
     #Display the results to the console
     if ($results.Tables[0] | Where-Object {$_.state_desc -eq 'SUSPECT'}) {
         Write-Host "`nCRITICAL:" -BackgroundColor Red -ForegroundColor White -NoNewline; Write-Host " $($server.TrueName)"
@@ -503,6 +533,68 @@ function Get-AGStatus {
         Get-Error $_ -ContinueAfterError
     }
 
+#Begin Write to DB
+#Build a DataTable to hold the Availability Group Status
+$tAGStatus = New-Object System.Data.DataTable
+$columnName = New-Object System.Data.DataColumn ag_name,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn replica_server_name,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn role,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn availability_mode_desc,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn failover_mode_desc,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn database_name,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn synchronization_state,([string])
+$tAGStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn synchronization_health,([string])
+$tAGStatus.Columns.Add($columnName)
+
+try {
+	$results.Tables[0] | ForEach-Object {
+    $rAGStatus = $tAGStatus.NewRow()
+    $rAGStatus.ag_name = $($_.ag_name)
+    $rAGStatus.replica_server_name = $($_.replica_server_name)
+    $rAGStatus.role = $($_.role)
+    $rAGStatus.availability_mode_desc = $($_.availability_mode_desc)
+    $rAGStatus.failover_mode_desc = $($_.failover_mode_desc)
+	$rAGStatus.database_name = $($_.database_name)
+    $rAGStatus.synchronization_state = $($_.synchronization_state)
+	$rAGStatus.synchronization_health = $($_.synchronization_health)
+    $tAGStatus.Rows.Add($rAGStatus)
+
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.sp_update_AGStatus'
+    $cmd.Parameters.Add("@AGStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@AGStatus"].Value = $tAGStatus}
+    
+    if ($tAGStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+
+    #End Write to DB
+
     #Display the results to the console
     if ($results.Tables[0].Rows.Count -ne 0) {
         if ($results.Tables[0] | Where-Object {$_.synchronization_health -ne 'HEALTHY'}) {
@@ -523,6 +615,7 @@ function Get-AGStatus {
       Write-Host "`nGOOD:" -BackgroundColor Green -ForegroundColor Black -NoNewline; Write-Host " $($server.TrueName)"
       Write-Host '*** No Availabiliy Groups detected ***'
     }
+
 } #Get-AGStatus
 
 function Get-DatabaseBackupStatus {
@@ -597,6 +690,133 @@ function Get-DatabaseBackupStatus {
         Get-Error $_ -ContinueAfterError
     }
 
+#Begin Write to DB
+
+    $cmd = @"
+    SELECT 
+         @@servername as [server_name]
+	    ,name AS [database_name]
+	    ,recovery_model_desc
+	    ,[D] AS last_full_backup
+	    ,[I] AS last_differential_backup
+	    ,[L] AS last_tlog_backup
+	    ,CASE
+		    /* These conditions below will cause a CRITICAL status */
+		    WHEN [D] IS NULL THEN 'CRITICAL'															-- if last_full_backup is null then critical
+		    WHEN [D] < DATEADD(DD,-1,CURRENT_TIMESTAMP) AND [I] IS NULL THEN 'CRITICAL'								-- if last_full_backup is more than 2 days old and last_differential_backup is null then critical
+		    WHEN [D] < DATEADD(DD,-7,CURRENT_TIMESTAMP) AND [I] < DATEADD(DD,-2,CURRENT_TIMESTAMP) THEN 'CRITICAL'				-- if last_full_backup is more than 7 days old and last_differential_backup more than 2 days old then critical
+		    WHEN recovery_model_desc <> 'SIMPLE' AND name <> 'model' AND [L] IS NULL THEN 'CRITICAL'	-- if recovery_model_desc is SIMPLE and last_tlog_backup is null then critical
+		    WHEN recovery_model_desc <> 'SIMPLE' AND name <> 'model' AND [L] < DATEADD(HH,-6,CURRENT_TIMESTAMP) THEN 'CRITICAL'		-- if last_tlog_backup is more than 6 hours old then critical
+		    --/* These conditions below will cause a WARNING status */
+		    WHEN [D] < DATEADD(DD,-1,CURRENT_TIMESTAMP) AND [I] < DATEADD(DD,-1,CURRENT_TIMESTAMP) THEN 'WARNING'		-- if last_full_backup is more than 1 day old and last_differential_backup is greater than 1 days old then warning
+		    WHEN recovery_model_desc <> 'SIMPLE' AND name <> 'model' AND [L] < DATEADD(HH,-3,CURRENT_TIMESTAMP) THEN 'WARNING'		-- if last_tlog_backup is more than 3 hours old then warning
+            /* Everything else will return a GOOD status */
+		    ELSE 'GOOD'
+	     END AS backup_status
+	    ,CASE
+		    /* These conditions below will cause a CRITICAL status */
+		    WHEN [D] IS NULL THEN 'No FULL backups'															-- if last_full_backup is null then critical
+		    WHEN [D] < DATEADD(DD,-1,CURRENT_TIMESTAMP) AND [I] IS NULL THEN 'FULL backup > 1 day; no DIFF backups'			-- if last_full_backup is more than 2 days old and last_differential_backup is null then critical
+		    WHEN [D] < DATEADD(DD,-7,CURRENT_TIMESTAMP) AND [I] < DATEADD(DD,-2,CURRENT_TIMESTAMP) THEN 'FULL backup > 7 day; DIFF backup > 2 days'	-- if last_full_backup is more than 7 days old and last_differential_backup more than 2 days old then critical
+		    WHEN recovery_model_desc <> 'SIMPLE' AND name <> 'model' AND [L] IS NULL THEN 'No LOG backups'	-- if recovery_model_desc is SIMPLE and last_tlog_backup is null then critical
+		    WHEN recovery_model_desc <> 'SIMPLE' AND name <> 'model' AND [L] < DATEADD(HH,-6,CURRENT_TIMESTAMP) THEN 'LOG backup > 6 hours'		-- if last_tlog_backup is more than 6 hours old then critical
+		    --/* These conditions below will cause a WARNING status */
+		    WHEN [D] < DATEADD(DD,-1,CURRENT_TIMESTAMP) AND [I] < DATEADD(DD,-1,CURRENT_TIMESTAMP) THEN 'FULL backup > 7 day; DIFF backup > 1 day'		-- if last_full_backup is more than 1 day old and last_differential_backup is greater than 1 days old then warning
+		    WHEN recovery_model_desc <> 'SIMPLE' AND name <> 'model' AND [L] < DATEADD(HH,-3,CURRENT_TIMESTAMP) THEN 'LOG backup > 3 hours'		-- if last_tlog_backup is more than 3 hours old then warning
+            /* Everything else will return a GOOD status */
+		    ELSE 'No issues'
+	     END AS status_desc
+    FROM (
+	    SELECT
+		     d.name
+		    ,d.recovery_model_desc
+		    ,bs.type
+		    ,MAX(bs.backup_finish_date) AS backup_finish_date
+	    FROM master.sys.databases d
+	    LEFT JOIN msdb.dbo.backupset bs ON d.name = bs.database_name
+	    WHERE (bs.type IN ('D','I','L') OR bs.type IS NULL)
+	    AND d.database_id <> 2				-- exclude tempdb
+	    AND d.source_database_id IS NULL	-- exclude snapshot databases
+	    AND d.state NOT IN (1,6,10)			-- exclude offline, restoring, or secondary databases
+	    AND d.is_in_standby = 0				-- exclude log shipping secondary databases
+	    GROUP BY d.name, d.recovery_model_desc, bs.type
+    ) AS SourceTable  
+    PIVOT  
+    (
+	    MAX(backup_finish_date)
+	    FOR type IN ([D],[I],[L])  
+    ) AS PivotTable
+    ORDER BY database_name;
+"@
+    
+    try {
+        $results = $server.ExecuteWithResults($cmd)
+    }
+    catch {
+        Get-Error $_ -ContinueAfterError
+    }
+#Build a DataTable to hold the Backup Status
+$tBackupStatus = New-Object System.Data.DataTable
+$columnName = New-Object System.Data.DataColumn server_name,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn database_name,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn recovery_model_desc,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_full_backup,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_differential_backup,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_tlog_backup,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn backup_status,([string])
+$tBackupStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn status_desc,([string])
+$tBackupStatus.Columns.Add($columnName)
+
+
+try {#For each row in results, add it to the table object
+	$results.Tables[0] | ForEach-Object {
+    $rBackupStatus = $tBackupStatus.NewRow()
+    $rBackupStatus.server_name = $($_.server_name)
+    $rBackupStatus.database_name = $($_.database_name)
+    $rBackupStatus.recovery_model_desc = $($_.recovery_model_desc)
+    $rBackupStatus.last_full_backup = $($_.last_full_backup)
+    $rBackupStatus.last_differential_backup = $($_.last_differential_backup)
+	$rBackupStatus.last_tlog_backup = $($_.last_tlog_backup)
+    $rBackupStatus.backup_status = $($_.backup_status)
+	$rBackupStatus.status_desc = $($_.status_desc)
+    $tBackupStatus.Rows.Add($rBackupStatus)
+
+    #Connect to the CMS database and pass the table object to the stored procedure
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.sp_update_backupStatus'
+    $cmd.Parameters.Add("@backupStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@backupStatus"].Value = $tBackupStatus}
+    
+    if ($tBackupStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+#End Write to DB
+
     #Display the results to the console
     if ($results.Tables[0] | Where-Object {$_.backup_status -eq 'CRITICAL'}) {
         Write-Host "`nCRITICAL:" -BackgroundColor Red -ForegroundColor White -NoNewline; Write-Host " $($server.TrueName)"
@@ -650,6 +870,79 @@ function Get-DiskSpace {
     else { Write-Host "`nGOOD:" -BackgroundColor Green -ForegroundColor Black -NoNewline; Write-Host " $($server.TrueName)" }
 
     $results.Tables[0] | Where-Object {$_.free_space_pct -lt 20.0} | Select-Object volume_mount_point,total_size_gb,available_size_gb,free_space_pct | Format-Table -AutoSize
+#Begin Write to DB
+    $cmd = @"
+    SELECT DISTINCT
+         @@servername server_name 
+        ,vs.volume_mount_point
+        ,vs.logical_volume_name
+        ,CONVERT(DECIMAL(18,2), vs.total_bytes/1073741824.0) AS total_size_gb
+        ,CONVERT(DECIMAL(18,2), vs.available_bytes/1073741824.0) AS available_size_gb
+        ,CONVERT(DECIMAL(18,2), vs.available_bytes * 1. / vs.total_bytes * 100.) AS free_space_pct
+    FROM sys.master_files AS f WITH (NOLOCK)
+    CROSS APPLY sys.dm_os_volume_stats(f.database_id, f.[file_id]) AS vs 
+    ORDER BY vs.volume_mount_point OPTION (RECOMPILE);
+"@
+    try {
+            $results = $server.ExecuteWithResults($cmd)
+        }
+        catch {
+            Get-Error $_ -ContinueAfterError
+        }
+#Build a DataTable to hold the Disk Space
+    $tDiskSpace = New-Object System.Data.DataTable
+    $columnName = New-Object System.Data.DataColumn server_name,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn volume_mount_point,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn logical_volume_name,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn total_size_gb,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn available_size_gb,([string])
+    $tDiskSpace.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn free_space_pct,([string])
+    $tDiskSpace.Columns.Add($columnName)
+
+
+try {
+	$results.Tables[0] | ForEach-Object {
+    $rDiskSpace = $tDiskSpace.NewRow()
+    $rDiskSpace.server_name = $($_.server_name)
+    $rDiskSpace.volume_mount_point = $($_.volume_mount_point)
+    $rDiskSpace.logical_volume_name = $($_.logical_volume_name)
+    $rDiskSpace.total_size_gb = $($_.total_size_gb)
+    $rDiskSpace.available_size_gb = $($_.available_size_gb)
+	$rDiskSpace.free_space_pct = $($_.free_space_pct)
+    $tDiskSpace.Rows.Add($rDiskSpace)
+
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.update_diskSpace'
+    $cmd.Parameters.Add("@diskSpace", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@diskSpace"].Value = $tDiskSpace}
+    
+    if ($tDiskSpace.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+#End Write to DB
 } #Get-DiskSpace
 
 function Get-FailedJobs {
@@ -705,6 +998,96 @@ function Get-FailedJobs {
     }
 
     $results.Tables[0] | Where-Object {$_.last_run_status -in 'Failed','Retry','Canceled'} | Select-Object job_name,current_run_status,last_run_status,last_stop_date | Format-Table -AutoSize
+    #Begin Write to DB
+#Get new data with added columns
+$cmd = @"
+    SELECT
+        @@SERVERNAME server_name 
+	    ,j.name AS job_name
+	    ,CASE
+		    WHEN a.start_execution_date IS NULL THEN 'Not Running'
+		    WHEN a.start_execution_date IS NOT NULL AND a.stop_execution_date IS NULL THEN 'Running'
+		    WHEN a.start_execution_date IS NOT NULL AND a.stop_execution_date IS NOT NULL THEN 'Not Running'
+	        END AS 'current_run_status'
+	    ,a.start_execution_date AS 'last_start_date'
+	    ,a.stop_execution_date AS 'last_stop_date'
+	    ,CASE h.run_status
+		    WHEN 0 THEN 'Failed'
+		    WHEN 1 THEN 'Succeeded'
+		    WHEN 2 THEN 'Retry'
+		    WHEN 3 THEN 'Canceled'
+	        END AS 'last_run_status'
+	    ,h.message AS 'job_output'
+    FROM msdb.dbo.sysjobs j
+    INNER JOIN msdb.dbo.sysjobactivity a ON j.job_id = a.job_id
+    LEFT JOIN msdb.dbo.sysjobhistory h ON a.job_history_id = h.instance_id
+    WHERE a.session_id = (SELECT MAX(session_id) FROM msdb.dbo.sysjobactivity)
+		AND j.enabled = 1
+    ORDER BY j.name;
+"@
+    try {
+        $results = $server.ExecuteWithResults($cmd)
+    }
+    catch {
+        Get-Error $_ -ContinueAfterError
+    }
+#Build a DataTable to hold the Job Status
+$tJobStatus = New-Object System.Data.DataTable
+$columnName = New-Object System.Data.DataColumn server_name,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn job_name,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn current_run_status,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_start_date,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_stop_date,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_run_status,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn job_output,([string])
+$tJobStatus.Columns.Add($columnName)
+
+
+try {
+	$results.Tables[0] | ForEach-Object {
+    $rJobStatus = $tJobStatus.NewRow()
+    $rJobStatus.server_name = $($_.server_name)
+    $rJobStatus.job_name = $($_.job_name)
+    $rJobStatus.current_run_status = $($_.current_run_status)
+    $rJobStatus.last_start_date = $($_.last_start_date)
+    $rJobStatus.last_stop_date = $($_.last_stop_date)
+    $rJobStatus.last_run_status = $($_.last_run_status)
+	$rJobStatus.job_output = $($_.job_output)
+    $tJobStatus.Rows.Add($rJobStatus)
+
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.update_jobStatus'
+    $cmd.Parameters.Add("@jobStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@jobStatus"].Value = $tJobStatus}
+    
+    if ($tJobStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+#End Write to DB
 } #Get-FailedJobs
 
 function Get-AppLogEvents {
@@ -779,6 +1162,68 @@ function Get-ServiceStatus {
             Write-Host "$($_.servicename): $($_.status_desc)"
         }
     }
+
+#Begin Write to DB
+
+    $cmd = "SELECT @@servername server_name, servicename as service_name,CASE SERVERPROPERTY('IsClustered') WHEN 0 THEN startup_type_desc WHEN 1 THEN 'Automatic' END AS startup_type_desc,status_desc FROM sys.dm_server_services;"
+
+    try {
+        $results = $server.ExecuteWithResults($cmd)
+    }
+    catch {
+        Get-Error $_ -ContinueAfterError
+    }
+    #Build a DataTable to hold the SQL Service Status
+            $tServiceStatus = New-Object System.Data.DataTable
+            $columnName = New-Object System.Data.DataColumn server_name,([string])
+            $tServiceStatus.Columns.Add($columnName)
+            $columnName = New-Object System.Data.DataColumn service_name,([string])
+            $tServiceStatus.Columns.Add($columnName)
+            $columnName = New-Object System.Data.DataColumn startup_type_desc,([string])
+            $tServiceStatus.Columns.Add($columnName)
+            $columnName = New-Object System.Data.DataColumn status_desc,([string])
+            $tServiceStatus.Columns.Add($columnName)
+    
+    try {#For each row in results, add it to the table object
+    
+    	$results.Tables[0] | ForEach-Object {
+
+        $rServiceStatus = $tServiceStatus.NewRow()
+        $rServiceStatus.server_name = $($_.server_name)
+        $rServiceStatus.service_name = $($_.service_name)
+        $rServiceStatus.startup_type_desc = $($_.startup_type_desc)
+        $rServiceStatus.status_desc = $($_.status_desc)
+        $tServiceStatus.Rows.Add($rServiceStatus)
+        
+        #Connect to the CMS database and pass the table object to the stored procedure
+        $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+        $conn.Open()
+        $cmd = New-Object System.Data.SqlClient.SqlCommand
+        $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+        $cmd.CommandText = 'dbo.sp_update_serviceStatus'
+        $cmd.Parameters.Add("@serviceStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+        $cmd.Parameters["@serviceStatus"].Value = $tServiceStatus}
+        
+        if ($tServiceStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+                try {
+                  $cmd.Connection = $conn
+                  $null = $cmd.ExecuteNonQuery()
+                }
+                catch {
+                  $objError = Get-Error $_ -ContinueAfterError
+                }
+                finally {
+                  #Make sure this connection is closed
+                  $conn.Close()
+                 }
+            }
+        }
+
+    catch{
+          Get-Error $_ -ContinueAfterError
+        }
+
+#End Write to DB
 } #Get-ServiceStatus
 
 function Get-ClusterStatus {
@@ -832,6 +1277,49 @@ function Get-ClusterStatus {
       Write-Host "`nGOOD:" -BackgroundColor Green -ForegroundColor Black -NoNewline; Write-Host " $($server.TrueName)"
       Write-Host '*** No cluster detected ***'
     }
+#Begin Write to DB
+    #Build a DataTable to hold the Cluster Status
+    $tCLStatus = New-Object System.Data.DataTable
+    $columnName = New-Object System.Data.DataColumn cluster_node_name,([string])
+    $tCLStatus.Columns.Add($columnName)
+    $columnName = New-Object System.Data.DataColumn cluster_node_status,([string])
+    $tCLStatus.Columns.Add($columnName)
+
+
+try {
+	$results.Tables[0] | ForEach-Object {
+    $rCLStatus = $tCLStatus.NewRow()
+    $rCLStatus.cluster_node_name = $($_.cluster_node_name)
+    $rCLStatus.cluster_node_status = $($_.cluster_node_status)
+    $tCLStatus.Rows.Add($rCLStatus)
+
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.update_clusterStatus'
+    $cmd.Parameters.Add("@clusterStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@clusterStatus"].Value = $tCLStatus}
+    
+    if ($tCLStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+#End Write to DB
 } #Get-ClusterStatus
 
 ####################   MAIN   ########################

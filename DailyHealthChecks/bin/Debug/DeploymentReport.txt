@@ -1,0 +1,62 @@
+﻿** Highlights
+     Tables that will be rebuilt
+       None
+     Clustered indexes that will be dropped
+       None
+     Clustered indexes that will be created
+       None
+     Possible data issues
+       None
+
+** User actions
+     Create
+       [dbo].[AGStatusType] (User-Defined Table Type)
+       [dbo].[backupStatusType] (User-Defined Table Type)
+       [dbo].[clusterStatusType] (User-Defined Table Type)
+       [dbo].[diskSpaceType] (User-Defined Table Type)
+       [dbo].[jobStatusType] (User-Defined Table Type)
+       [dbo].[serviceStatusType] (User-Defined Table Type)
+       [dbo].[AGStatusHistory] (Table)
+       [dbo].[AGStatusHistory].[IX_AGStatusHistory] (Column Store Index)
+       [dbo].[AGStatusHistory].[IX_AGStatusHistory_ID_PERIOD_COLUMNS] (Index)
+       [dbo].[backupStatusHistory] (Table)
+       [dbo].[backupStatusHistory].[IX_backupStatusHistory] (Column Store Index)
+       [dbo].[backupStatusHistory].[IX_backupStatusHistory_ID_PERIOD_COLUMNS] (Index)
+       [dbo].[clusterStatusHistory] (Table)
+       [dbo].[clusterStatusHistory].[IX_clusterStatusHistory] (Column Store Index)
+       [dbo].[clusterStatusHistory].[IX_clusterStatusHistory_ID_PERIOD_COLUMNS] (Index)
+       [dbo].[DatabaseStatusHistory] (Table)
+       [dbo].[DatabaseStatusHistory].[IX_DatabaseStatusHistory] (Column Store Index)
+       [dbo].[DatabaseStatusHistory].[IX_DatabaseStatusHistory_ID_PERIOD_COLUMNS] (Index)
+       [dbo].[diskSpaceHistory] (Table)
+       [dbo].[diskSpaceHistory].[IX_diskSpaceHistory] (Column Store Index)
+       [dbo].[diskSpaceHistory].[IX_diskSpaceHistory_ID_PERIOD_COLUMNS] (Index)
+       [dbo].[jobStatusHistory] (Table)
+       [dbo].[jobStatusHistory].[IX_jobStatusHistory] (Column Store Index)
+       [dbo].[jobStatusHistory].[IX_jobStatusHistory_ID_PERIOD_COLUMNS] (Index)
+       [dbo].[serviceStatusHistory] (Table)
+       [dbo].[serviceStatusHistory].[IX_serviceStatusHistory] (Column Store Index)
+       [dbo].[serviceStatusHistory].[IX_serviceStatusHistory_ID_PERIOD_COLUMNS] (Index)
+       [dbo].[SQLUpTimeHistory] (Table)
+       [dbo].[SQLUpTimeHistory].[IX_SQLUpTimeHistory] (Column Store Index)
+       [dbo].[SQLUpTimeHistory].[IX_SQLUpTimeHistory_ID_PERIOD_COLUMNS] (Index)
+       [dbo].[AGStatus] (Table)
+       [dbo].[backupStatus] (Table)
+       [dbo].[clusterStatus] (Table)
+       [dbo].[DatabaseStatus] (Table)
+       [dbo].[diskSpace] (Table)
+       [dbo].[jobStatus] (Table)
+       [dbo].[serviceStatus] (Table)
+       [dbo].[SQLUpTime] (Table)
+       Default Constraint: unnamed constraint on [dbo].[AGStatus] (Default Constraint)
+       Default Constraint: unnamed constraint on [dbo].[DatabaseStatus] (Default Constraint)
+       [dbo].[sp_update_AGStatus] (Procedure)
+       [dbo].[sp_update_backupStatus] (Procedure)
+       [dbo].[sp_update_clusterStatus] (Procedure)
+       [dbo].[sp_update_DatabaseStatus] (Procedure)
+       [dbo].[sp_update_diskSpace] (Procedure)
+       [dbo].[sp_update_jobStatus] (Procedure)
+       [dbo].[sp_update_serviceStatus] (Procedure)
+       [dbo].[sp_update_SQLUpTime] (Procedure)
+
+** Supporting actions

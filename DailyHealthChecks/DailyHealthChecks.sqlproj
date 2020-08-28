@@ -1,0 +1,100 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Name>DailyHealthChecks</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{f76d7cab-2efc-4b03-8c34-878350614975}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql130DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <RootNamespace>DailyHealthChecks</RootNamespace>
+    <AssemblyName>DailyHealthChecks</AssemblyName>
+    <ModelCollation>1033,CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+    <DefaultCollation>SQL_Latin1_General_CP1_CI_AS</DefaultCollation>
+    <DefaultFilegroup>PRIMARY</DefaultFilegroup>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Properties" />
+    <Folder Include="dbo\" />
+    <Folder Include="dbo\Tables\" />
+    <Folder Include="Scripts" />
+    <Folder Include="dbo\Stored Procedures" />
+    <Folder Include="dbo\Types" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="dbo\Tables\SQLUpTime.sql" />
+    <Build Include="dbo\Tables\SQLUpTimeHistory.sql" />
+    <Build Include="dbo\Stored Procedures\update_SQLUpTime.sql" />
+    <Build Include="dbo\Tables\DatabaseStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_databaseStatus.sql" />
+    <Build Include="dbo\Tables\DatabaseStatusHistory.sql" />
+    <Build Include="dbo\Tables\AGStatus.sql" />
+    <Build Include="dbo\Tables\AGStatusHistory.sql" />
+    <Build Include="dbo\Types\AGStatusType.sql" />
+    <Build Include="dbo\Stored Procedures\update_AGStatus.sql" />
+    <Build Include="dbo\Tables\backupStatus.sql" />
+    <Build Include="dbo\Tables\backupStatusHistory.sql" />
+    <Build Include="dbo\Tables\clusterStatus.sql" />
+    <Build Include="dbo\Tables\clusterStatusHistory.sql" />
+    <Build Include="dbo\Tables\diskSpace.sql" />
+    <Build Include="dbo\Tables\diskSpaceHistory.sql" />
+    <Build Include="dbo\Tables\jobStatus.sql" />
+    <Build Include="dbo\Tables\jobStatusHistory.sql" />
+    <Build Include="dbo\Tables\serviceStatus.sql" />
+    <Build Include="dbo\Tables\serviceStatusHistory.sql" />
+    <Build Include="Scripts\PostDeployment.sql" />
+    <Build Include="dbo\Types\backupStatusType.sql" />
+    <Build Include="dbo\Types\clusterStatusType.sql" />
+    <Build Include="dbo\Types\diskStatusType.sql" />
+    <Build Include="dbo\Types\jobStatusType.sql" />
+    <Build Include="dbo\Types\serviceStatusType.sql" />
+    <Build Include="dbo\Stored Procedures\update_backupStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_clusterStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_diskSpace.sql" />
+    <Build Include="dbo\Stored Procedures\update_jobStatus.sql" />
+    <Build Include="dbo\Stored Procedures\update_serviceStatus.sql" />
+  </ItemGroup>
+</Project>

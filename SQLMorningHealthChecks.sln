@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30225.117
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F5034706-568F-408A-B7B3-4D38C6DB8A32}") = "SQLMorningHealthChecks", "SQLMorningHealthChecks.pssproj", "{6CAFC0C6-A428-4D30-A9F9-700E829FEA51}"
+EndProject
+Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "DailyHealthChecks", "DailyHealthChecks\DailyHealthChecks.sqlproj", "{F76D7CAB-2EFC-4B03-8C34-878350614975}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,8 +17,17 @@ Global
 		{6CAFC0C6-A428-4D30-A9F9-700E829FEA51}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6CAFC0C6-A428-4D30-A9F9-700E829FEA51}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6CAFC0C6-A428-4D30-A9F9-700E829FEA51}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F76D7CAB-2EFC-4B03-8C34-878350614975}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F76D7CAB-2EFC-4B03-8C34-878350614975}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F76D7CAB-2EFC-4B03-8C34-878350614975}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{F76D7CAB-2EFC-4B03-8C34-878350614975}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F76D7CAB-2EFC-4B03-8C34-878350614975}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F76D7CAB-2EFC-4B03-8C34-878350614975}.Release|Any CPU.Deploy.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3CA1431D-0326-4104-A6C0-0EEB466D4AC6}
 	EndGlobalSection
 EndGlobal
