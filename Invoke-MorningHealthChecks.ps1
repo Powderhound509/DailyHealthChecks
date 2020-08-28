@@ -998,6 +998,96 @@ function Get-FailedJobs {
     }
 
     $results.Tables[0] | Where-Object {$_.last_run_status -in 'Failed','Retry','Canceled'} | Select-Object job_name,current_run_status,last_run_status,last_stop_date | Format-Table -AutoSize
+    #Begin Write to DB
+#Get new data with added columns
+$cmd = @"
+    SELECT
+        @@SERVERNAME server_name 
+	    ,j.name AS job_name
+	    ,CASE
+		    WHEN a.start_execution_date IS NULL THEN 'Not Running'
+		    WHEN a.start_execution_date IS NOT NULL AND a.stop_execution_date IS NULL THEN 'Running'
+		    WHEN a.start_execution_date IS NOT NULL AND a.stop_execution_date IS NOT NULL THEN 'Not Running'
+	        END AS 'current_run_status'
+	    ,a.start_execution_date AS 'last_start_date'
+	    ,a.stop_execution_date AS 'last_stop_date'
+	    ,CASE h.run_status
+		    WHEN 0 THEN 'Failed'
+		    WHEN 1 THEN 'Succeeded'
+		    WHEN 2 THEN 'Retry'
+		    WHEN 3 THEN 'Canceled'
+	        END AS 'last_run_status'
+	    ,h.message AS 'job_output'
+    FROM msdb.dbo.sysjobs j
+    INNER JOIN msdb.dbo.sysjobactivity a ON j.job_id = a.job_id
+    LEFT JOIN msdb.dbo.sysjobhistory h ON a.job_history_id = h.instance_id
+    WHERE a.session_id = (SELECT MAX(session_id) FROM msdb.dbo.sysjobactivity)
+		AND j.enabled = 1
+    ORDER BY j.name;
+"@
+    try {
+        $results = $server.ExecuteWithResults($cmd)
+    }
+    catch {
+        Get-Error $_ -ContinueAfterError
+    }
+#Build a DataTable to hold the Job Status
+$tJobStatus = New-Object System.Data.DataTable
+$columnName = New-Object System.Data.DataColumn server_name,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn job_name,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn current_run_status,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_start_date,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_stop_date,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn last_run_status,([string])
+$tJobStatus.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn job_output,([string])
+$tJobStatus.Columns.Add($columnName)
+
+
+try {
+	$results.Tables[0] | ForEach-Object {
+    $rJobStatus = $tJobStatus.NewRow()
+    $rJobStatus.server_name = $($_.server_name)
+    $rJobStatus.job_name = $($_.job_name)
+    $rJobStatus.current_run_status = $($_.current_run_status)
+    $rJobStatus.last_start_date = $($_.last_start_date)
+    $rJobStatus.last_stop_date = $($_.last_stop_date)
+    $rJobStatus.last_run_status = $($_.last_run_status)
+	$rJobStatus.job_output = $($_.job_output)
+    $tJobStatus.Rows.Add($rJobStatus)
+
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.update_jobStatus'
+    $cmd.Parameters.Add("@jobStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@jobStatus"].Value = $tJobStatus}
+    
+    if ($tJobStatus.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+#End Write to DB
 } #Get-FailedJobs
 
 function Get-AppLogEvents {
