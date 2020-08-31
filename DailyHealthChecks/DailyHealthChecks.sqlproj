@@ -97,4 +97,7 @@
     <Build Include="dbo\Stored Procedures\update_jobStatus.sql" />
     <Build Include="dbo\Stored Procedures\update_serviceStatus.sql" />
   </ItemGroup>
+  <ItemGroup>
+    <PostDeploy Include="Scripts\PostDeployment.SetupJob.sql" />
+  </ItemGroup>
 </Project>

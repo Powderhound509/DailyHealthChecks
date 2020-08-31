@@ -1,5 +1,4 @@
 C:\Users\mrlen\Source\Repos\DailyHealthChecks\DailyHealthChecks\bin\Debug\DailyHealthChecks.dacpac
-C:\Users\mrlen\Source\Repos\DailyHealthChecks\DailyHealthChecks\obj\Debug\DailyHealthChecks.sqlprojAssemblyReference.cache
 C:\Users\mrlen\Source\Repos\DailyHealthChecks\DailyHealthChecks\obj\Debug\DailyHealthChecks.dll
 C:\Users\mrlen\Source\Repos\DailyHealthChecks\DailyHealthChecks\obj\Debug\DailyHealthChecks.pdb
 C:\Users\mrlen\Source\Repos\DailyHealthChecks\DailyHealthChecks\bin\Debug\DailyHealthChecks.dll
