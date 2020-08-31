@@ -35,7 +35,7 @@
    1. CRITICAL = Failed
    2. WARNING  = Retry or Canceled
    3. GOOD     = Succeeded
-9. What errors appeared in the SQL errorlog in the last 24 hours?
+9. What errors appeared in the SQL errorlog in the last 24 hours?  (Not written to database since it's in the event log already)
    1. CRITICAL = Errors logged
    2. GOOD     = No errors logged
 
