@@ -7,15 +7,17 @@
 # Purpose:     PowerShell script to automate morning health checks.
 #
 # History:
-# Date         Comment
-# -----------  ----------------------------------------------------------------
-# 06 Nov 2017  Created
-# 27 May 2020  Changed error trapping to continue processing when a server is offline.
-# 27 May 2020  Added "is enabled" check for the failed jobs function.
-# 27 May 2020  Fixed bug in the database status funtion for mirrored databases.
-# 27 May 2020  Added a new check for Windows Cluster node status.
-# 27 May 2020  Added a new check for SQL service(s) status.
-# -----------------------------------------------------------------------------
+# Date         BY               Comment
+# -----------  -----------      ----------------------------------------------------------------------
+# 06 Nov 2017  Patrick Keisler  Created
+# 27 May 2020  Patrick Keisler  Changed error trapping to continue processing when a server is offline.
+# 27 May 2020  Patrick Keisler  Added "is enabled" check for the failed jobs function.
+# 27 May 2020  Patrick Keisler  Fixed bug in the database status funtion for mirrored databases.
+# 27 May 2020  Patrick Keisler  Added a new check for Windows Cluster node status.
+# 27 May 2020  Patrick Keisler  Added a new check for SQL service(s) status.
+# 21 Jul 2020  Joshua Lent      Added database insert statements to all checks (except error log)
+# 24 Nov 2020  Joshua Lent      Added a check for expring SQL Logins
+# -----------------------------------------------------------------------------------------------------
 #
 # Copyright (C) 2020 Microsoft Corporation
 #
@@ -1321,7 +1323,97 @@ catch{
     }
 #End Write to DB
 } #Get-ClusterStatus
+#Get-SQLLogins
+function Get-SQLLogins {
+  Param (
+    [CmdletBinding()]
+    [parameter(Position=0,Mandatory=$true)][ValidateNotNullOrEmpty()]$targetServer
+    )
 
+    $server = Get-SqlConnection $targetServer
+
+    $cmd = @"
+if(SELECT SERVERPROPERTY('IsIntegratedSecurityOnly'))=1
+	print 'Server is configured for Windows Authentication Only, Goodbye.'
+else begin
+	-- table variable to hold filtered results from the CTE
+	declare @LoginsExpiring table(recordID int identity(1,1), serverName sysname, SQL_Login varchar(50), DaysUntilExpiration varchar(50));
+	-- This is the notification threshold
+	declare @limit int = 360;
+	-- CTE to capture and filter based on @limit
+	with sqlLogins_CTE(serverName, [sqlLogin], DaysUntilExpiration)
+	as
+	-- CTE Query
+	(
+		select @@servername, [name], LOGINPROPERTY([name], 'DaysUntilExpiration')[DaysUntilExpiration] 
+		from sys.server_principals
+		where [type] = 'S' -- SQL Login
+		and name not like '#%'
+		and sid <> 0x01
+	)
+	select serverName, [sqlLogin], cast(isnull(DaysUntilExpiration,'Non-Expiring Account') as varchar(20)) daysUntilExpired
+	from sqlLogins_CTE
+	where DaysUntilExpiration is null or DaysUntilExpiration <= @limit;
+
+end --if
+"@
+
+    try {
+        $results = $server.ExecuteWithResults($cmd)
+    }
+    catch {
+        Get-Error $_ -ContinueAfterError
+    }
+
+
+#Begin Write to DB
+#Build a DataTable to hold the Availability Group Status
+$tSQLLogin = New-Object System.Data.DataTable
+$columnName = New-Object System.Data.DataColumn serverName,([string])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn sqlLogin,([string])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn daysUntilExpired,([string])
+$tSQLLogin.Columns.Add($columnName)
+
+
+try {
+	$results.Tables[0] | ForEach-Object {
+    $rSQLLogin = $tSQLLogin.NewRow()
+    $rSQLLogin.serverName = $($_.serverName)
+    $rSQLLogin.sqlLogin = $($_.sqlLogin)
+    $rSQLLogin.daysUntilExpired = $($_.daysUntilExpired)
+    $tSQLLogin.Rows.Add($rSQLLogin)
+
+    $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
+    $conn.Open()
+    $cmd = New-Object System.Data.SqlClient.SqlCommand
+    $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
+    $cmd.CommandText = 'dbo.update_SQLLoginsTracker'
+    $cmd.Parameters.Add("@SQLLoginStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
+    $cmd.Parameters["@SQLLoginStatus"].Value = $tSQLLogin}
+    
+    if ($tSQLLogin.Rows.Count -gt 0){ #Don't bother calling the procedure if we don't have any rows
+            try {
+              $cmd.Connection = $conn
+              $null = $cmd.ExecuteNonQuery()
+            }
+            catch {
+              $objError = Get-Error $_ -ContinueAfterError
+            }
+            finally {
+              #Make sure this connection is closed
+              $conn.Close()
+             }
+        }
+    }
+
+catch{
+      Get-Error $_ -ContinueAfterError
+    }
+#End Write to DB
+
+} #Get-SQLLogins
 ####################   MAIN   ########################
 Clear-Host
 
@@ -1372,5 +1464,9 @@ ForEach ($targetServer in $targetServerList) { Get-FailedJobs -targetServer $tar
 #Check the Application event log for SQL errors
 Write-Host "`n##########  Application Event Log Report:  ##########" -BackgroundColor Black -ForegroundColor Green
 ForEach ($targetServer in $targetServerList) { Get-AppLogEvents -targetServer $targetServer}
+##Check the SQLLoginExpirations
+Write-Host "`n##########  SQL Logins Report:  ##########" -BackgroundColor Black -ForegroundColor Green
+ForEach ($targetServer in $targetServerList) { Get-SQLLogins -targetServer $targetServer}
 
+##Execution Summary
 Write-Host "`nElapsed Time: $(New-TimeSpan -Start $startTime -End (Get-Date))"

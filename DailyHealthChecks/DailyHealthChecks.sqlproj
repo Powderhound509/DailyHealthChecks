@@ -96,6 +96,9 @@
     <Build Include="dbo\Stored Procedures\update_diskSpace.sql" />
     <Build Include="dbo\Stored Procedures\update_jobStatus.sql" />
     <Build Include="dbo\Stored Procedures\update_serviceStatus.sql" />
+    <Build Include="dbo\Types\sqlLoginStatusType.sql" />
+    <Build Include="dbo\Tables\sqlLogins_Tracker.sql" />
+    <Build Include="dbo\Tables\sqlLogins_TrackerHistory.sql" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="Scripts\PostDeployment.SetupJob.sql" />
