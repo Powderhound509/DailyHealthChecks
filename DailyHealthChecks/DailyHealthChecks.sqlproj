@@ -99,6 +99,7 @@
     <Build Include="dbo\Types\sqlLoginStatusType.sql" />
     <Build Include="dbo\Tables\sqlLogins_Tracker.sql" />
     <Build Include="dbo\Tables\sqlLogins_TrackerHistory.sql" />
+    <Build Include="dbo\Stored Procedures\update_SQLLoginsTracker.sql" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="Scripts\PostDeployment.SetupJob.sql" />

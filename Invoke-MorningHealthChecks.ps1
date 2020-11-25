@@ -1341,19 +1341,33 @@ else begin
 	-- This is the notification threshold
 	declare @limit int = 360;
 	-- CTE to capture and filter based on @limit
-	with sqlLogins_CTE(serverName, [sqlLogin], DaysUntilExpiration)
+	with sqlLogins_CTE(serverName, [sqlLogin], daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled)
 	as
 	-- CTE Query
 	(
-		select @@servername, [name], LOGINPROPERTY([name], 'DaysUntilExpiration')[DaysUntilExpiration] 
-		from sys.server_principals
-		where [type] = 'S' -- SQL Login
-		and name not like '#%'
-		and sid <> 0x01
+		select 
+			@@servername, 
+			[sp].[name] sqlLogin, 
+			LOGINPROPERTY([sp].[name], 'DaysUntilExpiration')[daysUntilExpired],
+			LOGINPROPERTY([sp].[name], 'PasswordLastSetTime') passwordLastSetTime,
+			LOGINPROPERTY([sp].[name], 'IsExpired') isExpired,
+			PWDCOMPARE([sp].[name], password_hash) userNameAsPassword,
+			[sl].[create_date] loginCreateDate, 
+			[sl].[modify_date] loginModifyDate,
+			[sl].[is_policy_checked] policyEnforced,
+			[sl].[is_expiration_checked] expirationEnforced,
+			[sl].[is_disabled] isDisabled
+
+		from sys.server_principals  sp
+		inner join sys.sql_logins sl
+		on [sl].[sid] = [sp].[sid]
+		where [sp].[type] = 'S' -- SQL Login
+		and [sp].[name] not like '#%'
+		and [sp].[sid] <> 0x01
 	)
-	select serverName, [sqlLogin], cast(isnull(DaysUntilExpiration,'Non-Expiring Account') as varchar(20)) daysUntilExpired
+	select serverName, [sqlLogin], cast(isnull(daysUntilExpired,'Non-Expiring Account') as varchar(20)) daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled
 	from sqlLogins_CTE
-	where DaysUntilExpiration is null or DaysUntilExpiration <= @limit;
+	where daysUntilExpired is null or daysUntilExpired <= @limit;
 
 end --if
 "@
@@ -1375,7 +1389,22 @@ $columnName = New-Object System.Data.DataColumn sqlLogin,([string])
 $tSQLLogin.Columns.Add($columnName)
 $columnName = New-Object System.Data.DataColumn daysUntilExpired,([string])
 $tSQLLogin.Columns.Add($columnName)
-
+$columnName = New-Object System.Data.DataColumn passwordLastSetTime,([string])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn isExpired,([int])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn userNameAsPassword,([int])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn loginCreateDate,([string])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn loginModifyDate,([string])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn policyEnforced,([int])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn expirationEnforced,([int])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn isDisabled,([int])
+$tSQLLogin.Columns.Add($columnName)
 
 try {
 	$results.Tables[0] | ForEach-Object {
@@ -1383,6 +1412,14 @@ try {
     $rSQLLogin.serverName = $($_.serverName)
     $rSQLLogin.sqlLogin = $($_.sqlLogin)
     $rSQLLogin.daysUntilExpired = $($_.daysUntilExpired)
+    $rSQLLogin.passwordLastSetTime = $($_.passwordLastSetTime)
+    $rSQLLogin.isExpired = $($_.isExpired)
+    $rSQLLogin.userNameAsPassword = $($_.userNameAsPassword)
+    $rSQLLogin.loginCreateDate = $($_.loginCreateDate)
+    $rSQLLogin.loginModifyDate = $($_.loginModifyDate)
+    $rSQLLogin.policyEnforced = $($_.policyEnforced)
+    $rSQLLogin.expirationEnforced = $($_.expirationEnforced)
+    $rSQLLogin.isDisabled = $($_.isDisabled)
     $tSQLLogin.Rows.Add($rSQLLogin)
 
     $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
@@ -1414,7 +1451,10 @@ catch{
 #End Write to DB
 
 } #Get-SQLLogins
+
+
 ####################   MAIN   ########################
+
 Clear-Host
 
 $startTime = Get-Date
