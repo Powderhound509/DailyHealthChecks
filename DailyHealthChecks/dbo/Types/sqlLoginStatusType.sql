@@ -1,6 +1,7 @@
 ﻿CREATE TYPE [dbo].[sqlLoginStatusType] AS TABLE
 (
 	[serverName] [VARCHAR](128) NULL,
+	[dbList] [VARCHAR](MAX) NULL,
 	[loginName] [VARCHAR](50) NULL,
 	[daysUntilExpired] [VARCHAR](20) NULL,
 	[passwordLastSetTime] [DATETIME2] NULL,

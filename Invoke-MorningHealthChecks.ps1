@@ -1333,20 +1333,26 @@ function Get-SQLLogins {
     $server = Get-SqlConnection $targetServer
 
     $cmd = @"
+-- table variable to hold Login:DB mappings
+declare @LoginMapping table(loginName nvarchar(50) NULL, dbName sysname NULL, userName nvarchar(50) NULL, userAlias nvarchar(50) NULL);
+-- Seed our login Mapping Table
+insert into @LoginMapping
+exec master..sp_msloginmappings
+
+
 if(SELECT SERVERPROPERTY('IsIntegratedSecurityOnly'))=1
 	print 'Server is configured for Windows Authentication Only, Goodbye.'
 else begin
-	-- table variable to hold filtered results from the CTE
-	declare @LoginsExpiring table(recordID int identity(1,1), serverName sysname, SQL_Login varchar(50), DaysUntilExpiration varchar(50));
 	-- This is the notification threshold
 	declare @limit int = 360;
 	-- CTE to capture and filter based on @limit
-	with sqlLogins_CTE(serverName, [sqlLogin], daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled)
+	with sqlLogins_CTE(serverName, dbName, [sqlLogin], daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled)
 	as
 	-- CTE Query
 	(
 		select 
-			@@servername, 
+			@@servername serverName, 
+			dbName,
 			[sp].[name] sqlLogin, 
 			LOGINPROPERTY([sp].[name], 'DaysUntilExpiration')[daysUntilExpired],
 			LOGINPROPERTY([sp].[name], 'PasswordLastSetTime') passwordLastSetTime,
@@ -1361,14 +1367,24 @@ else begin
 		from sys.server_principals  sp
 		inner join sys.sql_logins sl
 		on [sl].[sid] = [sp].[sid]
+		inner join @LoginMapping lm
+		on lm.loginName = sp.name
 		where [sp].[type] = 'S' -- SQL Login
 		and [sp].[name] not like '#%'
 		and [sp].[sid] <> 0x01
 	)
-	select serverName, [sqlLogin], cast(isnull(daysUntilExpired,'Non-Expiring Account') as varchar(20)) daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled
-	from sqlLogins_CTE
-	where daysUntilExpired is null or daysUntilExpired <= @limit;
-
+	-- added a comma separated list of databases here 12/1/20
+	select distinct serverName, --STRING_AGG(CONVERT(NVARCHAR(max), ISNULL(dbName,'')), ',')dbList, STRING_AGG only works in version 2017+
+		STUFF((select ','+dbname
+			from sqlLogins_CTE cti
+				group by
+				dbname
+				for XML PATH(''), TYPE).value('.','VARCHAR(max)'),1,1,'')dbList,
+		[sqlLogin], cast(isnull(daysUntilExpired,'Non-Expiring Account') as varchar(20)) daysUntilExpired, 
+		passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, 
+		expirationEnforced, isDisabled
+	from sqlLogins_CTE cte
+	where daysUntilExpired is null or daysUntilExpired <= @limit
 end --if
 "@
 
@@ -1384,6 +1400,8 @@ end --if
 #Build a DataTable to hold the Availability Group Status
 $tSQLLogin = New-Object System.Data.DataTable
 $columnName = New-Object System.Data.DataColumn serverName,([string])
+$tSQLLogin.Columns.Add($columnName)
+$columnName = New-Object System.Data.DataColumn dbList,([string])
 $tSQLLogin.Columns.Add($columnName)
 $columnName = New-Object System.Data.DataColumn sqlLogin,([string])
 $tSQLLogin.Columns.Add($columnName)
@@ -1410,6 +1428,7 @@ try {
 	$results.Tables[0] | ForEach-Object {
     $rSQLLogin = $tSQLLogin.NewRow()
     $rSQLLogin.serverName = $($_.serverName)
+    $rSQLLogin.dbList = $($_.dbList)
     $rSQLLogin.sqlLogin = $($_.sqlLogin)
     $rSQLLogin.daysUntilExpired = $($_.daysUntilExpired)
     $rSQLLogin.passwordLastSetTime = $($_.passwordLastSetTime)
@@ -1502,8 +1521,8 @@ Write-Host "`n##########  Failed Jobs Report:  ##########" -BackgroundColor Blac
 ForEach ($targetServer in $targetServerList) { Get-FailedJobs -targetServer $targetServer}
 
 #Check the Application event log for SQL errors
-Write-Host "`n##########  Application Event Log Report:  ##########" -BackgroundColor Black -ForegroundColor Green
-ForEach ($targetServer in $targetServerList) { Get-AppLogEvents -targetServer $targetServer}
+#Write-Host "`n##########  Application Event Log Report:  ##########" -BackgroundColor Black -ForegroundColor Green
+#ForEach ($targetServer in $targetServerList) { Get-AppLogEvents -targetServer $targetServer}
 ##Check the SQLLoginExpirations
 Write-Host "`n##########  SQL Logins Report:  ##########" -BackgroundColor Black -ForegroundColor Green
 ForEach ($targetServer in $targetServerList) { Get-SQLLogins -targetServer $targetServer}

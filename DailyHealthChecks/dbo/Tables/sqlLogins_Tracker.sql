@@ -2,6 +2,7 @@
 (
 	[ID] [INT] IDENTITY(1,1) NOT NULL,
 	[serverName] [VARCHAR](128) NULL,
+	[dbList] [VARCHAR](MAX) NULL,
 	[appName] [VARCHAR](50) NULL,
 	[loginName] [VARCHAR](50) NULL,
 	[POC] [VARCHAR](128) NULL,

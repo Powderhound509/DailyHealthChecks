@@ -3,10 +3,10 @@ AS BEGIN
 	MERGE dbo.sqlLogins_Tracker AS [target]
 	USING 
 		(
-		SELECT	serverName, [loginName], daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled
+		SELECT	serverName, dbList, [loginName], daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled
 		FROM @SQLLoginStatus
 		) AS [SOURCE](	
-				serverName, [loginName], daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled)
+				serverName, dbList, [loginName], daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled)
 
 		ON (
 			[TARGET].serverName = [SOURCE].serverName and
@@ -15,7 +15,7 @@ AS BEGIN
 		WHEN MATCHED
 			THEN UPDATE SET
 						--[target].serverName = [source].serverName,
-						--[target].loginName = [source].loginName,
+						[TARGET].dbList = [SOURCE].dbList,
 						[TARGET].daysUntilExpired = [SOURCE].daysUntilExpired,
 						[TARGET].passwordLastSetTime = [SOURCE].passwordLastSetTime,
 						[TARGET].isExpired = [SOURCE].isExpired,
@@ -26,10 +26,11 @@ AS BEGIN
 						[TARGET].expirationEnforced = [SOURCE].expirationEnforced,
 						[TARGET].isDisabled = [SOURCE].isDisabled
 		WHEN NOT MATCHED THEN
-			INSERT	(serverName, [loginName], daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled
+			INSERT	(serverName, dbList, [loginName], daysUntilExpired, passwordLastSetTime, isExpired, userNameAsPassword, loginCreateDate, loginModifyDate, policyEnforced, expirationEnforced, isDisabled
 					)
 			VALUES	(
 					[SOURCE].serverName,
+					[SOURCE].dbList,
 					[SOURCE].[loginName],
 					[SOURCE].daysUntilExpired,
 					[SOURCE].passwordLastSetTime,
