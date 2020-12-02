@@ -1432,13 +1432,13 @@ try {
     $rSQLLogin.sqlLogin = $($_.sqlLogin)
     $rSQLLogin.daysUntilExpired = $($_.daysUntilExpired)
     $rSQLLogin.passwordLastSetTime = $($_.passwordLastSetTime)
-    $rSQLLogin.isExpired = $($_.isExpired)
-    $rSQLLogin.userNameAsPassword = $($_.userNameAsPassword)
+    $rSQLLogin.isExpired = [int]$($_.isExpired)
+    $rSQLLogin.userNameAsPassword = [int]$($_.userNameAsPassword)
     $rSQLLogin.loginCreateDate = $($_.loginCreateDate)
     $rSQLLogin.loginModifyDate = $($_.loginModifyDate)
-    $rSQLLogin.policyEnforced = $($_.policyEnforced)
-    $rSQLLogin.expirationEnforced = $($_.expirationEnforced)
-    $rSQLLogin.isDisabled = $($_.isDisabled)
+    $rSQLLogin.policyEnforced = [int]$($_.policyEnforced)
+    $rSQLLogin.expirationEnforced = [int]$($_.expirationEnforced)
+    $rSQLLogin.isDisabled = [int]$($_.isDisabled)
     $tSQLLogin.Rows.Add($rSQLLogin)
 
     $conn = New-Object System.Data.SqlClient.SqlConnection "Data Source=$($cmsServer);Initial Catalog=`"$($cmsDatabase)`";Integrated Security=SSPI;Application Name=`"Invoke-MorningHealthChecks.ps1`""
