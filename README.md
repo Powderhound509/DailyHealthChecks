@@ -35,10 +35,10 @@
    1. CRITICAL = Failed
    2. WARNING  = Retry or Canceled
    3. GOOD     = Succeeded
-9. What errors appeared in the SQL errorlog in the last 24 hours?  (Not written to database since it's in the event log already)
-   1. CRITICAL = Errors logged
-   2. GOOD     = No errors logged
-
+9. SQL Login Tracker
+   1. Collects all SQL Server logins from servers registered to CMS and stores to DB.
+   2. In addition to tracking expiration and policy adhearance, additional fields 'appName' and 'POC' are provided for customizing a notification solution for expiring/ed accounts
+   
 For a full description of how this script works, read the article here.
 
 https://docs.microsoft.com/en-us/archive/blogs/samlester/sql-server-dba-morning-health-checks
