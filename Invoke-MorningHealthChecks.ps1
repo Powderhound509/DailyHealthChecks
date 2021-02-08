@@ -414,14 +414,22 @@ function Get-SqlUpTime {
     catch {
         Get-Error $_ -ContinueAfterError
     }
-    #Write to DB, would like to change this to if not exists insert else update and convert to temporal table
+    #Begin Write to DB
     try {
-    (Invoke-Sqlcmd -ServerInstance $targetServer -Query "SELECT @@servername, sqlserver_start_time FROM sys.dm_os_sys_info;") |
-            Write-SqlTableData -serverInstance $cmsServer -DatabaseName $cmsDatabase -SchemaName "dbo" -TableName "SQLUpTime" -Force
+        ## Get the server\instance and startup time
+        ##$result = $null
+        $result = @(Invoke-Sqlcmd -ServerInstance $targetServer -Query "SELECT @@servername serverName, sqlserver_start_time FROM sys.dm_os_sys_info;") ##|
+            ##Write-SqlTableData -serverInstance $cmsServer -DatabaseName $cmsDatabase -SchemaName "dbo" -TableName "SQLUpTime" -Force
+        $param1 = $result.serverName
+        $param2 = $result.sqlserver_start_time
+        Invoke-SQLcmd -ServerInstance $cmsServer -Query "Exec [$cmsDatabase].dbo.update_SQLUpTime '$param1', '$param2'" ##-outputerrors $true       
+    
     }
     catch{
          Get-Error $_ -ContinueAfterError
     }
+    #End Write to DB
+
     $upTime = (New-TimeSpan -Start ($sqlStartupTime) -End ($script:startTime))
 
     #Display the results to the console
@@ -440,6 +448,7 @@ function Get-SqlUpTime {
         Write-Host "`nGOOD:" -BackgroundColor Green -ForegroundColor Black -NoNewline; Write-Host " $($server.TrueName)"
         Write-Host "Uptime: $($upTime.Days).$($upTime.Hours):$($upTime.Minutes):$($upTime.Seconds)"
     }
+
 } #Get-SqlUptime
 
 function Get-DatabaseStatus {
