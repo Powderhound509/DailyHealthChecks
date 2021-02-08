@@ -37,7 +37,7 @@
    3. GOOD     = Succeeded
 9. SQL Login Tracker
    1. Collects all SQL Server logins from servers registered to CMS and stores to DB.
-   2. In addition to tracking expiration and policy adhearance, additional fields 'appName' and 'POC' are provided for customizing a notification solution for expiring/ed accounts
+   2. In addition to tracking expiration and policy adherence, additional fields 'appName' and 'POC' are provided for customizing a notification solution for expiring or expired accounts.
    
 For a full description of how this script works, read the article here.
 
