@@ -39,18 +39,16 @@
 # -----------------------------------------------------------------------------
 #
 # Paramaters:
-#   $cmsServer - Name of the CMS server where your list of SQL Servers is registered.
-#   $cmsGroup - Name of the CMS group that will be evaluated.
-#   $serverList - Comma delimited list of SQL Servers that will be evaluated.
+#   $cmsServer - Name of the CMS server where your list of SQL Servers is registered. (Mandatory)
+#   $cmsGroup - Name of the CMS group that will be evaluated. (Optional)
+#   $cmsDatabase - Specifies where to write the results to. (Mandatory)
+#   $serverList - Comma delimited list of SQL Servers that will be evaluated. (Optional)
 #
 # Important note: 
 #   Either "$cmsServer/$cmsGroup" or "$serverList" parameter should have values specified, but NOT BOTH.
 #
 # Example 1 uses the CMS parameters to check servers in the 'SQL2012' CMS group that is a subfolder of 'PROD':
-#   Invoke-MorningHealthChecks.ps1 -cmsServer 'SOLO\CMS' -cmsGroup 'PROD\SQL2012'
-#
-# Example 2 uses the $serverList paramenter to check 4 different SQL Servers:
-#   Invoke-MorningHealthChecks.ps1 -serverList 'CHEWIE','CHEWIE\SQL01','LUKE\SKYWALKER','LANDO\CALRISSIAN'
+#   Invoke-MorningHealthChecks.ps1 -cmsServer 'SOLO\CMS' -cmsGroup 'PROD\SQL2012' -cmsDatabase 'dailyHealthChecks'
 #
 # -----------------------------------------------------------------------------
 
@@ -481,7 +479,7 @@ function Get-DatabaseStatus {
             $param2 = $_.database_Name
             $param3 = $_.state_desc
             #Write-Host "$cmsDatabase, $param1, $param2, $param3"
-            Invoke-SQLcmd -ServerInstance $cmsServer -Query "Exec [$cmsDatabase].dbo.sp_update_DatabaseStatus '$param1', '$param2', '$param3'" ##-outputerrors $true
+            Invoke-SQLcmd -ServerInstance $cmsServer -Query "Exec [$cmsDatabase].dbo.update_DatabaseStatus '$param1', '$param2', '$param3'" ##-outputerrors $true
         }
     }
     catch{
@@ -572,7 +570,7 @@ try {
     $conn.Open()
     $cmd = New-Object System.Data.SqlClient.SqlCommand
     $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
-    $cmd.CommandText = 'dbo.sp_update_AGStatus'
+    $cmd.CommandText = 'dbo.update_AGStatus'
     $cmd.Parameters.Add("@AGStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
     $cmd.Parameters["@AGStatus"].Value = $tAGStatus}
     
@@ -795,7 +793,7 @@ try {#For each row in results, add it to the table object
     $conn.Open()
     $cmd = New-Object System.Data.SqlClient.SqlCommand
     $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
-    $cmd.CommandText = 'dbo.sp_update_backupStatus'
+    $cmd.CommandText = 'dbo.update_backupStatus'
     $cmd.Parameters.Add("@backupStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
     $cmd.Parameters["@backupStatus"].Value = $tBackupStatus}
     
@@ -1202,7 +1200,7 @@ function Get-ServiceStatus {
         $conn.Open()
         $cmd = New-Object System.Data.SqlClient.SqlCommand
         $cmd.CommandType = [System.Data.CommandType]::StoredProcedure
-        $cmd.CommandText = 'dbo.sp_update_serviceStatus'
+        $cmd.CommandText = 'dbo.update_serviceStatus'
         $cmd.Parameters.Add("@serviceStatus", [System.Data.SqlDbType]::Structured) | Out-Null #Table
         $cmd.Parameters["@serviceStatus"].Value = $tServiceStatus}
         
