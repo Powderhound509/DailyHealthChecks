@@ -22,9 +22,7 @@ as begin
 					 )
 		ON ([target].server_name = [source].server_name and
 			[target].[volume_mount_point] = [source].[volume_mount_point] and
-			[target].[logical_volume_name] = [source].[logical_volume_name])and
-			([target].[available_size_gb]<> [source].[available_size_gb] or
-			[target].[free_space_pct] <> [source].[free_space_pct])
+			[target].[logical_volume_name] = [source].[logical_volume_name])
 		WHEN MATCHED
 			THEN UPDATE SET
 				[target].[total_size_gb] = [source].[total_size_gb],
